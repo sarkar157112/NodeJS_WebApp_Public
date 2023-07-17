@@ -46,13 +46,6 @@ pipeline {
             }
         }
         stage('Sonarcube Testing') {
-            environment {
-
-               def scannerHome = tool 'sonarScannerTool'
-
-
-
-            }
             steps {
                     script{
                        
