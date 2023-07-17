@@ -1,0 +1,81 @@
+pipeline {
+    agent any
+    environment {
+        DOCKER_REGISTRY = 'myacr123test.azurecr.io'
+        DOCKER_IMAGE = 'myapp'
+        GIT_REPO_URL = 'https://github.com/sarkar157112/NodeJS_WebApp_Public.git'
+        IMAGE_TAG = "${env.BUILD_NUMBER}_${new Date().format('ddMMyy')}"
+        CONTAINER_IMAGE = 'CONTAINER_IMAGE'
+        KUBEMANIFEST_DIR = 'kubemanifest_aks/'
+        DEPLOYMENT_FILE = '01-deployment.yml'
+        SCANNER_HOME= tool 'sonar-scanner'
+    }
+    parameters {
+        choice(
+            name: 'APPROVE_BUILD',
+            choices: ['YES', 'NO'],
+            description: 'Do you approve the build?'
+        )
+        choice(
+            name: 'APPROVER_NAME',
+            choices: ['Manager', 'Team Lead', 'Project Lead', 'None'],
+            description: 'Select your name if you approve the build'
+        )
+    }
+    stages {
+        stage('Approval Request') {
+            steps{
+                script {
+                    echo "Do you approve ${env.BUILD_NUMBER} the build?"
+                    if (params.APPROVE_BUILD == 'NO') {
+                        error("User rejected the build.")
+                    } else if (params.APPROVE_BUILD == 'YES') {
+                        if (params.APPROVER_NAME != 'None') {
+                            echo "User approved the build. Continue..."
+                            echo "Approval was given by: " + params.APPROVER_NAME
+                        } else {
+                            error("Approval name not provided. Please select your name to approve.")
+                        }
+                    }
+                }
+            }
+        }
+        stage('Checkout') {
+            steps {
+                git branch: 'main', credentialsId: 'github_credentials', url: "${GIT_REPO_URL}"
+            }
+        }
+        stage('Sonarcube Testing') {
+            environment {
+
+               def scannerHome = tool 'sonarScannerTool'
+
+
+
+            }
+            steps {
+                    script{
+                       
+                        withSonarQubeEnv() {
+                            sh '${scannerHome}/bin/sonar-scanner --version'
+                            // sh '''
+                            //     ${scannerHome}/bin/sonar-scanner \
+                            //             -Dsonar.projectKey=colorom-cms-project \
+                            //             -Dsonar.sources=. \
+                            //             -Dsonar.host.url=http://192.168.1.73:9000 \
+                            //             -Dsonar.login=squ_e0148da445c29aac9514d310a2262d3eded3ac26
+                            // '''
+                        }
+                    }
+                }
+            }
+        stage('Docker Build') {
+            steps {
+                script {
+                    sh "docker build -t $DOCKER_REGISTRY/$DOCKER_IMAGE:$IMAGE_TAG ."
+                }
+            }
+        }
+        
+    }
+}
